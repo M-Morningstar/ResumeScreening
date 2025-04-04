@@ -55,7 +55,6 @@ def clean_resume_data(resume_df: pd.DataFrame) -> pd.DataFrame:
     if '﻿job_position_name' in resume_df.columns:
         resume_df = resume_df.rename(columns={'﻿job_position_name': 'job_position_name'})
 
-        
     cols_to_keep = [
         'job_position_name',
         'career_objective',
@@ -104,10 +103,10 @@ def clean_resume_data(resume_df: pd.DataFrame) -> pd.DataFrame:
 
 # Function to clean job data
 def clean_job_data(job_df: pd.DataFrame) -> pd.DataFrame:
-    job_keep = ['job_id', 'title', 'description', 'skills_desc', 'formatted_experience_level']
+    job_keep = ['job_id', 'title', 'description', 'skills_desc']
     job_df = job_df[job_keep]
 
-    text_cols = ['title', 'description', 'skills_desc', 'formatted_experience_level']
+    text_cols = ['title', 'description', 'skills_desc']
     cleaned = pd.DataFrame()
     cleaned['job_id'] = job_df['job_id']
 

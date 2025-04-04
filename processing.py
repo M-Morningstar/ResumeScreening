@@ -1,5 +1,6 @@
 import pandas as pd
 import torch
+import re
 import numpy as np
 from tqdm import tqdm
 from getCleanData import get_cleaned_datasets
@@ -26,6 +27,11 @@ def find_matching_resumes(job_embedding, cleaned_resume, resume_embeddings, top_
     top_scores, top_indices = torch.topk(cosine_scores, k=top_n)
     return cleaned_resume.iloc[top_indices.tolist()]
 
+def extract_years(text):
+    if pd.isna(text): return 0
+    match = re.search(r'(\d+)', str(text))
+    return int(match.group(1)) if match else 0
+
 # Main pairing function
 # This function generates pairs of resumes and jobs based on semantic matching and other criteria
 # If not enough matches are found, you randomly choose resumes
@@ -48,13 +54,15 @@ def generate_pairs(cleaned_job, cleaned_resume, resumes_per_job=5):
         selected_resumes = cleaned_resume.iloc[top_indices.tolist()]
 
         for i, (_, resume) in enumerate(selected_resumes.iterrows()):
+            resume_years = extract_years(resume.get('experiencere_requirement', ''))
+            
             paired_data.append({
                 'job_id': job_id,
                 'resume_id': resume.name,
                 'job_text': job_text,
                 'resume_text': resume['resume_text'],
-                'experience_requirement': resume.get('experiencere_requirement', ''),
                 'similarity_score': float(top_scores[i]),
+                'experience_years': resume_years,
                 'label': resume['label']
             })
 
