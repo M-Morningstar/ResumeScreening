@@ -51,12 +51,9 @@ def parse_list_string(val):
 
 # Function to clean resume data
 def clean_resume_data(resume_df: pd.DataFrame) -> pd.DataFrame:
-    # Fix hidden BOM or weird characters in column names
-    if '﻿job_position_name' in resume_df.columns:
-        resume_df = resume_df.rename(columns={'﻿job_position_name': 'job_position_name'})
-
+    resume_df.columns = resume_df.columns.str.encode('utf-8').str.decode('utf-8-sig').str.strip()
     cols_to_keep = [
-        'job_position_name',
+        'job_position_name',  # <-- kept separately
         'career_objective',
         'skills',
         'positions',
@@ -69,20 +66,16 @@ def clean_resume_data(resume_df: pd.DataFrame) -> pd.DataFrame:
     ]
     resume_df = resume_df[[col for col in cols_to_keep if col in resume_df.columns]].copy()
 
-    # Clean list-like columns and flatten them into space-separated strings
     for col in ['skills', 'certification_skills']:
         if col in resume_df.columns:
             resume_df[col] = resume_df[col].apply(parse_list_string)
             resume_df[col] = resume_df[col].apply(lambda x: ' '.join(x))
 
-    # Apply basic text cleaning to all remaining object columns
     for col in resume_df.columns:
         if col not in ['matched_score'] and resume_df[col].dtype == object:
             resume_df[col] = resume_df[col].apply(clean_text)
 
-    # Combine relevant fields into resume_text
     text_fields = [
-        'job_position_name',
         'career_objective',
         'skills',
         'positions',
@@ -91,33 +84,29 @@ def clean_resume_data(resume_df: pd.DataFrame) -> pd.DataFrame:
         'major_field_of_studies',
         'certification_skills'
     ]
-    text_fields = [col for col in text_fields if col in resume_df.columns]
-    resume_df['resume_text'] = resume_df[text_fields].apply(
-        lambda row: ' '.join(str(val).strip() for val in row if pd.notna(val)), axis=1
-    )
+    resume_df['resume_text'] = resume_df[text_fields].agg(lambda x: ' '.join(x.dropna()), axis=1)
 
-    # Create weakly-supervised label
     resume_df['label'] = resume_df['matched_score'].apply(lambda x: 1 if x >= 0.7 else 0)
+
+    resume_df = resume_df.reset_index(drop=True)
+    resume_df['resume_id'] = resume_df.index
 
     return resume_df
 
 # Function to clean job data
 def clean_job_data(job_df: pd.DataFrame) -> pd.DataFrame:
-    job_keep = ['job_id', 'title', 'description', 'skills_desc']
-    job_df = job_df[job_keep]
+    job_keep = ['job_id', 'title', 'description']  # Removed: 'skills_desc', 'formatted_experience_level'
+    job_df = job_df[job_keep].copy()
 
-    text_cols = ['title', 'description', 'skills_desc']
+    text_cols = ['description']  # Removed title so we don't duplicate
     cleaned = pd.DataFrame()
     cleaned['job_id'] = job_df['job_id']
+    cleaned['title'] = job_df['title'].apply(clean_text)  # kept as a separate field
 
-    # Clean individual text fields
     for col in text_cols:
-        cleaned[col.lower().replace(' ', '_')] = job_df[col].apply(clean_text)
+        cleaned[col] = job_df[col].apply(clean_text)
 
-    # Properly format job_text by stripping each field and joining with single spaces
-    cleaned['job_text'] = cleaned[
-        [col.lower().replace(' ', '_') for col in text_cols]
-    ].apply(lambda row: ' '.join(str(val).strip() for val in row if pd.notna(val)), axis=1)
+    cleaned['job_text'] = cleaned[text_cols].agg(lambda x: ' '.join(x.dropna()), axis=1)
 
     return cleaned
 
@@ -134,5 +123,11 @@ def get_cleaned_datasets():
     cleaned_resume = clean_resume_data(resume_df)
     cleaned_job = clean_job_data(job_df)
 
+    cleaned_job.to_csv('cleaned_job.csv', index=False)
+    cleaned_resume.to_csv('cleaned_resume.csv', index=False)
+
     print("Cleaning complete.")
     return cleaned_resume, cleaned_job
+
+
+get_cleaned_datasets()
