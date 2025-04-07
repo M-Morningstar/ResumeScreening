@@ -1,2 +1,9 @@
 downloaded_datasets/
 *.csv
+
+
+!Report/
+Report/*
+!Report/*.tex
+!Report/*.pdf
+!Report/Images/
